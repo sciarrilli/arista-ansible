@@ -46,6 +46,7 @@ Vagrant.configure(2) do |config|
         device.vm.provision :shell , inline: "sudo apt-get install -y tcpdump"
         device.vm.provision :shell , inline: "sudo apt-get install -y vim git"
         device.vm.provision :shell , inline: "git clone https://github.com/arista-eosplus/eos-ansible-quick-start.git"
+        device.vm.provision :shell , inline: "sudo chown vagrant:vagrant eos-ansible-quick-start/ -R"
 
 
 #        device.vm.provision :shell , inline: "sudo apt-get install software-properties-common git -y"
@@ -65,48 +66,61 @@ Vagrant.configure(2) do |config|
 #
 # spine01
 #
-  config.vm.define "spine01" do |spine01|
-    spine01.vm.provider "virtualbox" do |v|
-      v.memory = "1536"
+  config.vm.define "spine01" do |device|
+    device.vm.provider "virtualbox" do |v|
+      v.name = "spine01"
+      v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
+      v.memory = "2048"
     end
-
-    spine01.vm.box = "vEOS4166M"
-    spine01.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.2", auto_config: false
-    spine01.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.2", auto_config: false
-    spine01.vm.provision "shell", inline: <<-SHELL
+    device.vm.hostname = "spine01"
+    device.vm.box = "vEOS4166M"
+    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.2", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.2", auto_config: false
+    device.vm.provision "shell", inline: <<-SHELL
       sleep 30
       FastCli -p 15 -c "configure
       interface Management1
-        ip address 192.168.0.21/24"
+        ip address 192.168.0.21/24
 	  interface Ethernet1
-        ip address 10.0.0.2/32"
+        no switchport
+        ip address 10.0.0.2/24
 	  interface Ethernet2
-        ip address 10.2.0.2/32"
+        no switchport
+        ip address 10.2.0.2/24"
     SHELL
+    device.vm.provider "virtualbox" do |vbox|
+        vbox.customize ['modifyvm', :id, '--nic1', 'intnet', '--intnet1', 'net_mgmt']
+    end
   end
 
 #
 # spine02
 #
-  config.vm.define "spine02" do |spine02|
-    spine02.vm.provider "virtualbox" do |v|
-      v.memory = "1536"
+  config.vm.define "spine02" do |device|
+    device.vm.provider "virtualbox" do |v|
+      v.name = "spine02"
+      v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
+      v.memory = "4096"
     end
-    spine02.vm.box = "vEOS4166M"
-    spine02.vm.network "private_network", virtualbox__intnet: "s2l1", ip: "10.1.0.3", auto_config: false
-    spine02.vm.network "private_network", virtualbox__intnet: "s2l2", ip: "10.3.0.3", auto_config: false
+    device.vm.box = "vEOS4166M"
+    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.2", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.2", auto_config: false
 
-    spine02.vm.provision "shell", inline: <<-SHELL
-      sleep 30
-      FastCli -p 15 -c "configure
-      interface Management1
-        ip address 10.132.0.6/24"
-	  interface Ethernet1
-        ip address 10.1.0.2/32"
-	  interface Ethernet2
-        ip address 10.3.0.2/32"
-    SHELL
-  end
+#    device.vm.provision "shell", path: "helper_scripts/spine02.sh"
+
+
+  # remap nic1 for mgmt internal network
+    config.trigger.after :up do
+      info "Remapping nic1"
+      run "VBoxManage controlvm spine02 nic1 intnet net_mgmt"
+    end
+
+  # clean up files on the host after the guest is destroyed
+    config.trigger.after :destroy do
+      run "rm -rf '/Users/Nick/VirtualBox VMs/spine02/'"
+    end
+end
+
 
 #
 # leaf01
