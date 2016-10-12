@@ -82,13 +82,13 @@ Vagrant.configure(2) do |config|
     SHELL
 
     # remap nic1 for mgmt internal network
-      config.trigger.after :up do
+      config.trigger.after :up, :vm => "spine01" do
         info "Remapping nic1"
         run "VBoxManage controlvm spine01 nic1 intnet net_mgmt"
       end
 
     # clean up files on the host after the guest is destroyed
-      config.trigger.after :destroy do
+      config.trigger.after :destroy, :vm => "spine01" do
         run "rm -rf '/Users/Nick/VirtualBox VMs/spine01/'"
       end
   end
@@ -117,13 +117,13 @@ Vagrant.configure(2) do |config|
     SHELL
 
     # remap nic1 for mgmt internal network
-      config.trigger.after :up do
+      config.trigger.after :up, :vm => "spine02" do
         info "Remapping nic1"
         run "VBoxManage controlvm spine02 nic1 intnet net_mgmt"
       end
 
     # clean up files on the host after the guest is destroyed
-      config.trigger.after :destroy do
+      config.trigger.after :destroy, :vm => "spine02" do
         run "rm -rf '/Users/Nick/VirtualBox VMs/spine02/'"
       end
   end
@@ -154,13 +154,13 @@ Vagrant.configure(2) do |config|
     SHELL
 
     # remap nic1 for mgmt internal network
-      config.trigger.after :up do
+      config.trigger.after :up, :vm => "leaf01" do
         info "Remapping nic1"
         run "VBoxManage controlvm leaf01 nic1 intnet net_mgmt"
       end
 
     # clean up files on the host after the guest is destroyed
-      config.trigger.after :destroy do
+      config.trigger.after :destroy, :vm => "leaf01" do
         run "rm -rf '/Users/Nick/VirtualBox VMs/leaf01/'"
       end
    end
@@ -190,13 +190,13 @@ Vagrant.configure(2) do |config|
     SHELL
 
    # remap nic1 for mgmt internal network
-     config.trigger.after :up do
+     config.trigger.after :up, :vm => "leaf02" do
        info "Remapping nic1"
        run "VBoxManage controlvm leaf02 nic1 intnet net_mgmt"
       end
 
     # clean up files on the host after the guest is destroyed
-     config.trigger.after :destroy do
+     config.trigger.after :destroy, :vm => "leaf02" do
         run "rm -rf '/Users/Nick/VirtualBox VMs/leaf02/'"
      end
   end
