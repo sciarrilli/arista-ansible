@@ -1,10 +1,3 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-# All Vagrant configuration is done below. The "2" in Vagrant.configure
-# configures the configuration version (we support older styles for
-# backwards compatibility). Please don't change it unless you know what
-# you're doing.
 Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |v|
     v.gui=false
@@ -15,9 +8,11 @@ Vagrant.configure(2) do |config|
         v.name = "workbench"
         v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
         v.memory = 1024
+
       end
       device.vm.hostname = "workbench"
       device.vm.box = "boxcutter/ubuntu1404"
+
 
       device.vm.synced_folder ".", "/vagrant", disabled: true
       # UBUNTU DEVICES ONLY: Shorten Boot Process - remove \"Wait for Network
@@ -49,123 +44,165 @@ Vagrant.configure(2) do |config|
         device.vm.provision :shell , inline: "sudo chown vagrant:vagrant eos-ansible-quick-start/ -R"
 
 
-#        device.vm.provision :shell , inline: "sudo apt-get install software-properties-common git -y"
-#        device.vm.provision :shell , inline: "sudo apt-add-repository ppa:ansible/ansible -y"
-#        device.vm.provision :shell , inline: "sudo apt-get update"
-#        device.vm.provision :shell , inline: "sudo apt-get install ansible -qy"
-#        device.vm.provision :shell , inline: "git clone https://github.com/sciarrilli/cware-wbench.git"
-#        device.vm.provision :shell , inline: "ansible-playbook cware-wbench/wbench.yml --connection=local -i localhost,"
+  #        device.vm.provision :shell , inline: "sudo apt-get install software-properties-common git -y"
+  #        device.vm.provision :shell , inline: "sudo apt-add-repository ppa:ansible/ansible -y"
+  #        device.vm.provision :shell , inline: "sudo apt-get update"
+  #        device.vm.provision :shell , inline: "sudo apt-get install ansible -qy"
+  #        device.vm.provision :shell , inline: "git clone https://github.com/sciarrilli/cware-wbench.git"
+  #        device.vm.provision :shell , inline: "ansible-playbook cware-wbench/wbench.yml --connection=local -i localhost,"
 
 
-#      device.vm.provision "ansible" do |ansible|
-#        ansible.playbook = "./wbench/wbench.yml"
+  #      device.vm.provision "ansible" do |ansible|
+  #        ansible.playbook = "./wbench/wbench.yml"
 
       end
 
 
-#
-# spine01
-#
+#spine01
   config.vm.define "spine01" do |device|
     device.vm.provider "virtualbox" do |v|
       v.name = "spine01"
-      v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
-      v.memory = "2048"
     end
-    device.vm.hostname = "spine01"
     device.vm.box = "vEOS4166M"
-    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.2", auto_config: false
-    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.2", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.1.1.21", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.1.2.21", auto_config: false
+
     device.vm.provision "shell", inline: <<-SHELL
       sleep 30
       FastCli -p 15 -c "configure
+      hostname spine01
       interface Management1
-        ip address 192.168.0.21/24
-	  interface Ethernet1
+        ip address 192.168.0.21/24 secondary
+      interface Ethernet1
         no switchport
-        ip address 10.0.0.2/24
-	  interface Ethernet2
+        ip address 10.1.1.21/24
+      interface Ethernet2
         no switchport
-        ip address 10.2.0.2/24"
+        ip address 10.1.2.21/24"
     SHELL
-    device.vm.provider "virtualbox" do |vbox|
-        vbox.customize ['modifyvm', :id, '--nic1', 'intnet', '--intnet1', 'net_mgmt']
-    end
+
+    # remap nic1 for mgmt internal network
+      config.trigger.after :up do
+        info "Remapping nic1"
+        run "VBoxManage controlvm spine01 nic1 intnet net_mgmt"
+      end
+
+    # clean up files on the host after the guest is destroyed
+      config.trigger.after :destroy do
+        run "rm -rf '/Users/Nick/VirtualBox VMs/spine01/'"
+      end
   end
 
-#
-# spine02
-#
+#spine02
   config.vm.define "spine02" do |device|
     device.vm.provider "virtualbox" do |v|
       v.name = "spine02"
-      v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
-      v.memory = "4096"
     end
     device.vm.box = "vEOS4166M"
-    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.2", auto_config: false
-    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.2", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s2l1", ip: "10.2.1.22", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s2l2", ip: "10.2.2.22", auto_config: false
 
-#    device.vm.provision "shell", path: "helper_scripts/spine02.sh"
-
-
-  # remap nic1 for mgmt internal network
-    config.trigger.after :up do
-      info "Remapping nic1"
-      run "VBoxManage controlvm spine02 nic1 intnet net_mgmt"
-    end
-
-  # clean up files on the host after the guest is destroyed
-    config.trigger.after :destroy do
-      run "rm -rf '/Users/Nick/VirtualBox VMs/spine02/'"
-    end
-end
-
-
-#
-# leaf01
-#
-  config.vm.define "leaf01" do |leaf01|
-    leaf01.vm.provider "virtualbox" do |v|
-      v.memory = "1536"
-    end
-    leaf01.vm.box = "vEOS4166M"
-    leaf01.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.0.0.3", auto_config: false
-    leaf01.vm.network "private_network", virtualbox__intnet: "s2l1", ip: "10.1.0.3", auto_config: false
-
-    leaf01.vm.provision "shell", inline: <<-SHELL
+    device.vm.provision "shell", inline: <<-SHELL
       sleep 30
       FastCli -p 15 -c "configure
+      hostname spine02
       interface Management1
-        ip address 10.132.0.9/24"
-	  interface Ethernet1
-        ip address 10.0.0.1/32"
-	  interface Ethernet2
-        ip address 10.1.0.1/32"
+        ip address 192.168.0.22/24 secondary
+      interface Ethernet1
+        no switchport
+        ip address 10.2.1.22/24
+      interface Ethernet2
+        no switchport
+        ip address 10.2.2.22/24"
     SHELL
+
+    # remap nic1 for mgmt internal network
+      config.trigger.after :up do
+        info "Remapping nic1"
+        run "VBoxManage controlvm spine02 nic1 intnet net_mgmt"
+      end
+
+    # clean up files on the host after the guest is destroyed
+      config.trigger.after :destroy do
+        run "rm -rf '/Users/Nick/VirtualBox VMs/spine02/'"
+      end
   end
 
-#
-# leaf02
-#
-  config.vm.define "leaf02" do |leaf02|
-    leaf02.vm.provider "virtualbox" do |v|
-      v.memory = "1536"
-    end
-    leaf02.vm.box = "vEOS4166M"
-    leaf02.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.2.0.3", auto_config: false
-    leaf02.vm.network "private_network", virtualbox__intnet: "s2l2", ip: "10.3.0.3", auto_config: false
 
-    leaf02.vm.provision "shell", inline: <<-SHELL
+
+#leaf01
+  config.vm.define "leaf01" do |device|
+    device.vm.provider "virtualbox" do |v|
+      v.name = "leaf01"
+    end
+    device.vm.box = "vEOS4166M"
+    device.vm.network "private_network", virtualbox__intnet: "s1l1", ip: "10.1.1.11", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s2l1", ip: "10.2.1.11", auto_config: false
+
+    device.vm.provision "shell", inline: <<-SHELL
       sleep 30
       FastCli -p 15 -c "configure
+      hostname leaf01
       interface Management1
-        ip address 10.132.0.7/24"
-	  interface Ethernet1
-        ip address 10.2.0.1/32"
-	  interface Ethernet2
-        ip address 10.3.0.1/32"
+        ip address 192.168.0.11/24 secondary
+      interface Ethernet1
+        no switchport
+        ip address 10.1.1.11/24
+      interface Ethernet2
+        no switchport
+        ip address 10.2.1.11/24"
     SHELL
+
+    # remap nic1 for mgmt internal network
+      config.trigger.after :up do
+        info "Remapping nic1"
+        run "VBoxManage controlvm leaf01 nic1 intnet net_mgmt"
+      end
+
+    # clean up files on the host after the guest is destroyed
+      config.trigger.after :destroy do
+        run "rm -rf '/Users/Nick/VirtualBox VMs/leaf01/'"
+      end
+   end
+
+
+#leaf02
+  config.vm.define "leaf02" do |device|
+     device.vm.provider "virtualbox" do |v|
+      v.name = "leaf02"
+    end
+    device.vm.box = "vEOS4166M"
+    device.vm.network "private_network", virtualbox__intnet: "s1l2", ip: "10.1.2.12", auto_config: false
+    device.vm.network "private_network", virtualbox__intnet: "s2l2", ip: "10.2.2.12", auto_config: false
+
+    device.vm.provision "shell", inline: <<-SHELL
+      sleep 30
+      FastCli -p 15 -c "configure
+      hostname leaf02
+      interface Management1
+      ip address 192.168.0.12/24 secondary
+      interface Ethernet1
+        no switchport
+        ip address 10.1.2.12/24
+      interface Ethernet2
+        no switchport
+        ip address 10.2.2.12/24"
+    SHELL
+
+   # remap nic1 for mgmt internal network
+     config.trigger.after :up do
+       info "Remapping nic1"
+       run "VBoxManage controlvm leaf02 nic1 intnet net_mgmt"
+      end
+
+    # clean up files on the host after the guest is destroyed
+     config.trigger.after :destroy do
+        run "rm -rf '/Users/Nick/VirtualBox VMs/leaf02/'"
+     end
   end
+
+
+
+
 
 end
